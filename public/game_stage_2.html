@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoGuessr - Stage 2</title>
+    <!-- Correctly load Google Maps API with async and defer -->
+    <script async defer 
+        src="https://maps.googleapis.com/maps/api/js?v=3.exp&key=AIzaSyCY7my4zQaU1_qJEAS8cZpqhnfrsToOvPg&callback=initMap&libraries=geometry">
+    </script>
+    <script src="js/gameLogic.js"></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 80vh;
+        }
+        #timer {
+            font-size: 2em;
+            text-align: center;
+        }
+        #next-location-btn {
+            display: none; /* Initially hidden */
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            position: absolute;
+            top: 20%; /* Adjust position right below the text */
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        #next-location-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Stage 2: Make Your Guess!</h1>
+    <p>Click on the map to make your guess. The correct location will also appear, and the distance will be displayed.</p>
+    <div id="map"></div>
+    <div id="timer">Time left: 30</div>
+    <button id="next-location-btn" onclick="goToStage1()">Next Location</button>
+
+    <script>
+        let map;
+        let userGuessMarker;
+        let correctLocationMarker;
+        let distanceLine;
+        let distanceLabel;
+        let timer = 30;  // Declare timer only once
+        let timerInterval;
+
+        // Initialize the map after Google Maps API is loaded
+        function initMap() {
+            // Retrieve the randomLocation from localStorage
+            const location = JSON.parse(localStorage.getItem('randomLocation'));
+            
+            // Validate that randomLocation has correct values
+            if (!location || !location.lat || !location.lng) {
+                console.error('Invalid location data:', location);
+                return;  // Exit early if location data is invalid
+            }
+
+            // Initialize the map
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: location,
+                zoom: 2  // Start with world zoom level
+            });
+
+            // Start the timer countdown
+            startTimer();
+
+            // Add a listener for clicks on the map to make a guess
+            map.addListener('click', (event) => {
+                if (timer > 0) {
+                    const guess = { lat: event.latLng.lat(), lng: event.latLng.lng() };
+
+                    // Place a marker for the user's guess
+                    if (userGuessMarker) userGuessMarker.setMap(null);  // Remove previous guess
+                    userGuessMarker = new google.maps.Marker({
+                        position: event.latLng,
+                        map: map,
+                        title: "Your Guess"
+                    });
+
+                    // Calculate the distance and display the line
+                    const distance = calculateDistance(location, guess);
+                    const distanceInMiles = (distance * 0.621371).toFixed(2); // Convert km to miles
+
+                    // Draw a line between the correct location and the user's guess
+                    if (distanceLine) distanceLine.setMap(null);  // Remove previous line
+                    distanceLine = new google.maps.Polyline({
+                        path: [location, event.latLng],
+                        geodesic: true,
+                        strokeColor: '#FF0000',
+                        strokeOpacity: 1.0,
+                        strokeWeight: 2
+                    });
+                    distanceLine.setMap(map);
+
+                    // Calculate midpoint for placing the distance label above the line
+                    const midpoint = google.maps.geometry.spherical.interpolate(
+                        new google.maps.LatLng(location),
+                        new google.maps.LatLng(event.latLng.lat(), event.latLng.lng()),
+                        0.5
+                    );
+
+                    // Place the distance label slightly above the line
+                    const labelOffset = new google.maps.LatLng(
+                        midpoint.lat() + 0.02,  // Offset latitude slightly upward
+                        midpoint.lng()
+                    );
+
+                    if (distanceLabel) distanceLabel.setMap(null);  // Remove previous label
+                    distanceLabel = new google.maps.InfoWindow({
+                        content: `<div style="font-family: 'Cursive', sans-serif; font-weight: bold; font-size: 1.5em;">${distanceInMiles} miles</div>`,
+                        position: labelOffset
+                    });
+                    distanceLabel.open(map);
+
+                    // Update the displayed distance
+                    document.getElementById('timer').innerText = `Distance: ${distanceInMiles} miles`;
+
+                    // Show the "Next Location" button
+                    document.getElementById('next-location-btn').style.display = 'block';  // Make the button visible
+                    stopTimer();  // Stop the timer once the guess is made
+
+                    // Reveal the correct location marker
+                    if (!correctLocationMarker) {
+                        correctLocationMarker = new google.maps.Marker({
+                            map: map,
+                            position: location,
+                            title: "Correct Location"
+                        });
+                    }
+                }
+            });
+        }
+
+        // Timer countdown function
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                if (timer > 0) {
+                    timer--;
+                    document.getElementById('timer').textContent = `Time left: ${timer}`;
+                } else {
+                    clearInterval(timerInterval);
+                    alert('Time is up!');
+                }
+            }, 1000);
+        }
+
+        // Stop the timer
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
+        // Calculate distance using Haversine formula
+        function calculateDistance(loc1, loc2) {
+            const R = 6371; // Radius of the Earth in km
+            const dLat = (loc2.lat - loc1.lat) * Math.PI / 180;
+            const dLng = (loc2.lng - loc1.lng) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(loc1.lat * Math.PI / 180) * Math.cos(loc2.lat * Math.PI / 180) *
+                      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const distance = R * c; // Distance in km
+            return distance;
+        }
+
+        // Redirect to Stage 1 when "Next Location" is clicked
+        function goToStage1() {
+            window.location.href = "game_stage_1.html";  // Redirect to stage1
+        }
+    </script>
+</body>
+</html>

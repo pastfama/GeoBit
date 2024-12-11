@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoGuessr - Stage 1</title>
+    <script async defer 
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCY7my4zQaU1_qJEAS8cZpqhnfrsToOvPg&callback=initMap&libraries=geometry">
+    </script>
+    <script src="js/gameLogic.js"></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 80vh;
+        }
+        #guess-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            font-size: 1.2em;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #guess-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Stage 1: Guess the Location!</h1>
+    <div id="map"></div>
+    <button id="guess-btn" onclick="makeGuess()">Make a Guess</button>
+
+    <script>
+        let panorama;
+
+        async function initMap() {
+            const location = await fetchRandomLocation(); // Fetch random location from gameLogic.js
+            const randomLocation = { lat: location.lat, lng: location.lng };
+
+            // Create a Street View panorama for the random location
+            panorama = new google.maps.StreetViewPanorama(document.getElementById('map'), {
+                position: randomLocation,
+                pov: { heading: 165, pitch: 0 },
+                zoom: 1,
+                visible: true,
+                addressControl: false,  // Disable the address label
+                linksControl: false,    // Disable the links for navigation
+                fullscreenControl: false // Disable the fullscreen button
+            });
+        }
+
+        // Store the random location and redirect to Stage 2
+        function makeGuess() {
+            // Save the random location to localStorage for use in Stage 2
+            localStorage.setItem('randomLocation', JSON.stringify(randomLocation));
+
+            // Redirect to Stage 2
+            window.location.href = "game_stage_2.html";
+        }
+    </script>
+</body>
+</html>
